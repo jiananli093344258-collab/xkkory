@@ -1,9 +1,127 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nails Order</title>
+    <style>
+        :root { --primary: #d4a373; --bg: #f9f6f2; --text: #5a4a42; --white: #ffffff; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+        .container { max-width: 500px; margin: auto; padding-bottom: 120px; }
+        .search-input { width: 100%; padding: 12px; border: 2px solid var(--primary); border-radius: 25px; box-sizing: border-box; font-size: 16px; margin-bottom: 15px; outline: none; }
+        .category-title { background: #efe9e2; padding: 8px 15px; border-radius: 8px; margin: 20px 0 10px 0; font-weight: bold; color: var(--primary); }
+        .item-card { background: var(--white); border-radius: 12px; padding: 15px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .item-info { display: flex; justify-content: space-between; font-weight: bold; }
+        select, input { width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        .btn { background: var(--primary); color: white; border: none; padding: 12px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .footer { position: fixed; bottom: 0; left: 0; right: 0; background: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 999; display: none; padding: 20px; box-sizing: border-box; overflow-y: auto; }
+        textarea { width: 100%; height: 150px; padding: 10px; border-radius: 8px; border: 1px solid #ddd; background: #fffaf0; font-size: 14px; margin: 10px 0; }
+    </style>
+</head>
 <body>
+
+<div class="container">
+    <h2 style="text-align: center; color: var(--primary);">✨ 穿戴甲下單平台</h2>
+    <input type="text" id="search-input" class="search-input" placeholder="🔍 搜尋款式..." oninput="filterProducts()">
+    <div id="main-content"></div>
+</div>
+
+<div class="footer">
+    <div>總額: <span id="cart-total" style="font-weight: 800; color: var(--primary); font-size: 20px;">$0</span></div>
+    <button class="btn" style="width: 100px;" onclick="openCheckout()">結帳</button>
+</div>
+
+<div id="checkout-modal" class="modal">
+    <h3>📝 填寫資料</h3>
+    <input type="text" id="user-name" placeholder="收件人姓名">
+    <input type="tel" id="user-phone" placeholder="電話號碼">
+    <input type="text" id="user-social" placeholder="IG/FB 名稱">
+    <select id="payment"><option>貨到付款</option><option>銀行轉帳</option><option>LinePay</option></select>
+    <div id="summary" style="background: #fdfaf7; padding: 15px; border-radius: 10px; margin: 10px 0; font-size: 14px;"></div>
+    <button class="btn" onclick="submitOrder()">生成明細</button>
+    <button class="btn" style="background:#ccc; margin-top:10px;" onclick="closeModal('checkout-modal')">返回修改</button>
+</div>
+
+<div id="success-modal" class="modal" style="text-align: center;">
+    <h2 style="color: green; margin-top: 30px;">✅ 明細已生成</h2>
+    <p>請複製內容並傳送至 Line</p>
+    <textarea id="copy-area" readonly></textarea>
+    <button class="btn" style="background: #5a4a42; margin-bottom: 10px;" onclick="copyManual()">1. 點我複製文字</button>
+    <button class="btn" style="background: #00b900;" onclick="goToLine()">2. 開啟 Line (@227agbpg)</button>
+    <button class="btn" style="background: #888; margin-top: 30px;" onclick="location.reload()">回首頁</button>
+</div>
+
 <script>
-document.write(atob("PCFET0NUWVBFIGh0bWw+CjxodG1sIGxhbmc9InpoLVRXIj4KPGhlYWQ+CiAgICA8bWV0YSBjaGFy%0D%0Ac2V0PSJVVEYtOCI+CiAgICA8bWV0YSBuYW1lPSJ2aWV3cG9ydCIgY29udGVudD0id2lkdGg9ZGV2%0D%0AaWNlLXdpZHRoLCBpbml0aWFsLXNjYWxlPTEuMCwgbWF4aW11bS1zY2FsZT0xLjAsIHVzZXItc2Nh%0D%0AbGFibGU9bm8iPgogICAgPHRpdGxlPk5haWxzIE9yZGVyIOWwiOalreS4i+WWruW5s+WPsDwvdGl0%0D%0AbGU+CiAgICA8c3R5bGU+CiAgICAgICAgOnJvb3QgeyAtLXByaW1hcnk6ICNkNGEzNzM7IC0tYmc6%0D%0AICNmOWY2ZjI7IC0tdGV4dDogIzVhNGE0MjsgLS13aGl0ZTogI2ZmZmZmZjsgfQogICAgICAgIGJv%0D%0AZHkgeyBmb250LWZhbWlseTogc2Fucy1zZXJpZjsgYmFja2dyb3VuZDogdmFyKC0tYmcpOyBjb2xv%0D%0AcjogdmFyKC0tdGV4dCk7IG1hcmdpbjogMDsgcGFkZGluZzogMTVweDsgfQogICAgICAgIC5jb250%0D%0AYWluZXIgeyBtYXgtd2lkdGg6IDUwMHB4OyBtYXJnaW46IGF1dG87IHBhZGRpbmctYm90dG9tOiAx%0D%0AMDBweDsgfQogICAgICAgIC5pdGVtLWNhcmQgeyBiYWNrZ3JvdW5kOiB2YXIoLS13aGl0ZSk7IGJv%0D%0AcmRlci1yYWRpdXM6IDEycHg7IHBhZGRpbmc6IDE1cHg7IG1hcmdpbi1ib3R0b206IDEycHg7IGJv%0D%0AeC1zaGFkb3c6IDAgMnB4IDVweCByZ2JhKDAsMCwwLDAuMDUpOyBib3JkZXItbGVmdDogNXB4IHNv%0D%0AbGlkIHZhcigtLXByaW1hcnkpOyB9CiAgICAgICAgLml0ZW0taW5mbyB7IGRpc3BsYXk6IGZsZXg7%0D%0AIGp1c3RpZnktY29udGVudDogc3BhY2UtYmV0d2VlbjsgZm9udC13ZWlnaHQ6IGJvbGQ7IGFsaWdu%0D%0ALWl0ZW1zOiBjZW50ZXI7IH0KICAgICAgICAucHJpY2UtdGFnIHsgY29sb3I6IHZhcigtLXByaW1h%0D%0AcnkpOyBmb250LXNpemU6IDE4cHg7IH0KICAgICAgICAuc2l6ZS1ib3ggeyBtYXJnaW46IDEwcHgg%0D%0AMDsgYmFja2dyb3VuZDogI2ZhZmFmYTsgcGFkZGluZzogOHB4OyBib3JkZXItcmFkaXVzOiA4cHg7%0D%0AIGJvcmRlcjogMXB4IHNvbGlkICNlZWU7IH0KICAgICAgICAuc2l6ZS1sYWJlbCB7IGZvbnQtc2l6%0D%0AZTogMTJweDsgY29sb3I6ICM4ODg7IG1hcmdpbi1ib3R0b206IDVweDsgfQogICAgICAgIHNlbGVj%0D%0AdCB7IHdpZHRoOiAxMDAlOyBwYWRkaW5nOiAxMHB4OyBib3JkZXI6IDFweCBzb2xpZCAjZGRkOyBi%0D%0Ab3JkZXItcmFkaXVzOiA4cHg7IGZvbnQtc2l6ZTogMTZweDsgYmFja2dyb3VuZDogd2hpdGU7IG91%0D%0AdGxpbmU6IG5vbmU7IH0KICAgICAgICAuYnRuIHsgYmFja2dyb3VuZDogdmFyKC0tcHJpbWFyeSk7%0D%0AIGNvbG9yOiB3aGl0ZTsgYm9yZGVyOiBub25lOyBwYWRkaW5nOiAxMnB4OyB3aWR0aDogMTAwJTsg%0D%0AYm9yZGVyLXJhZGl1czogOHB4OyBjdXJzb3I6IHBvaW50ZXI7IGZvbnQtd2VpZ2h0OiBib2xkOyBm%0D%0Ab250LXNpemU6IDE2cHg7IH0KICAgICAgICAuZm9vdGVyIHsgcG9zaXRpb246IGZpeGVkOyBib3R0%0D%0Ab206IDA7IGxlZnQ6IDA7IHJpZ2h0OiAwOyBiYWNrZ3JvdW5kOiB3aGl0ZTsgcGFkZGluZzogMTVw%0D%0AeDsgZGlzcGxheTogZmxleDsganVzdGlmeS1jb250ZW50OiBzcGFjZS1iZXR3ZWVuOyBhbGlnbi1p%0D%0AdGVtczogY2VudGVyOyBib3gtc2hhZG93OiAwIC0ycHggMTBweCByZ2JhKDAsMCwwLDAuMSk7IHot%0D%0AaW5kZXg6IDUwOyB9CiAgICAgICAgLm1vZGFsIHsgcG9zaXRpb246IGZpeGVkOyB0b3A6IDA7IGxl%0D%0AZnQ6IDA7IHdpZHRoOiAxMDAlOyBoZWlnaHQ6IDEwMCU7IGJhY2tncm91bmQ6IHdoaXRlOyB6LWlu%0D%0AZGV4OiAxMDA7IGRpc3BsYXk6IG5vbmU7IHBhZGRpbmc6IDIwcHg7IGJveC1zaXppbmc6IGJvcmRl%0D%0Aci1ib3g7IG92ZXJmbG93LXk6IGF1dG87IH0KICAgICAgICBpbnB1dCB7IHdpZHRoOiAxMDAlOyBw%0D%0AYWRkaW5nOiAxMnB4OyBtYXJnaW46IDhweCAwOyBib3JkZXI6IDFweCBzb2xpZCAjZGRkOyBib3Jk%0D%0AZXItcmFkaXVzOiA4cHg7IGJveC1zaXppbmc6IGJvcmRlci1ib3g7IGZvbnQtc2l6ZTogMTZweDsg%0D%0AfQogICAgICAgIHRleHRhcmVhIHsgd2lkdGg6IDEwMCU7IGhlaWdodDogMTUwcHg7IHBhZGRpbmc6%0D%0AIDEwcHg7IGJvcmRlci1yYWRpdXM6IDhweDsgYm9yZGVyOiAxcHggc29saWQgI2RkZDsgZm9udC1m%0D%0AYW1pbHk6IG1vbm9zcGFjZTsgYmFja2dyb3VuZDogI2ZmZmFmMDsgbWFyZ2luOiAxMHB4IDA7IGZv%0D%0AbnQtc2l6ZTogMTRweDsgcmVzaXplOiBub25lOyB9CiAgICA8L3N0eWxlPgo8L2hlYWQ+Cjxib2R5%0D%0APgoKPGRpdiBjbGFzcz0iY29udGFpbmVyIj4KICAgIDxoMiBzdHlsZT0idGV4dC1hbGlnbjogY2Vu%0D%0AdGVyOyBjb2xvcjogdmFyKC0tcHJpbWFyeSk7Ij7inKgg56m/5oi055Sy5LiL5Zau5bmz5Y+wPC9o%0D%0AMj4KICAgIDxwIHN0eWxlPSJ0ZXh0LWFsaWduOiBjZW50ZXI7IGZvbnQtc2l6ZTogMTNweDsgY29s%0D%0Ab3I6ICNhNjhiN2M7Ij7osrfkuInpgIHkuIAgKDTku7YkODAw5bCB6aCCKSAvIOS4g+mAgeS4gDwv%0D%0AcD4KCjxkaXYgc3R5bGU9InBvc2l0aW9uOiBzdGlja3k7IHRvcDogMDsgYmFja2dyb3VuZDogdmFy%0D%0AKC0tYmcpOyBwYWRkaW5nOiAxMHB4IDA7IHotaW5kZXg6IDYwOyI+CiAgICA8aW5wdXQgdHlwZT0i%0D%0AdGV4dCIgaWQ9InNlYXJjaC1pbnB1dCIgcGxhY2Vob2xkZXI9IvCflI0g5pCc5bCL5qy+5byP6Zec%0D%0A6Y215a2XLi4uIiAKICAgICAgICBzdHlsZT0id2lkdGg6IDEwMCU7IHBhZGRpbmc6IDEycHggMTVw%0D%0AeDsgYm9yZGVyOiAycHggc29saWQgdmFyKC0tcHJpbWFyeSk7IGJvcmRlci1yYWRpdXM6IDI1cHg7%0D%0AIGJveC1zaXppbmc6IGJvcmRlci1ib3g7IGZvbnQtc2l6ZTogMTZweDsgb3V0bGluZTogbm9uZTsg%0D%0AYmFja2dyb3VuZDogd2hpdGU7IgogICAgICAgIG9uaW5wdXQ9ImZpbHRlclByb2R1Y3RzKCkiPgo8%0D%0AL2Rpdj4KCiAgICAKICAgIDxkaXYgaWQ9InByb2R1Y3QtbGlzdCI+PC9k"));
+    const categories = [
+        { title: "🔥 熱門款式", products: [{ name: '經典單色', price: 200, sizes: ['XS', 'S', 'M', 'L'] }, { name: '極光貓眼', price: 350, sizes: ['S', 'M'] }] },
+        { title: "💎 奢華系列", products: [{ name: '璀璨碎鑽', price: 300, sizes: ['M', 'L'] }, { name: '琥珀暈染', price: 320, sizes: ['XS', 'S', 'M', 'L'] }] }
+    ];
+    let cart = [];
+
+    function init() {
+        const main = document.getElementById('main-content');
+        let idx = 0;
+        categories.forEach(cat => {
+            main.innerHTML += `<div class="category-block"><div class="category-title">${cat.title}</div>` + 
+            cat.products.map(p => {
+                let s = p.sizes.map(sz => `<option value="${sz}">${sz}</option>`).join('');
+                let html = `<div class="item-card" data-name="${p.name}"><div class="item-info"><span>${p.name}</span><span style="color:var(--primary)">$${p.price}</span></div>
+                <select id="size-${idx}">${s}</select><button class="btn" onclick="addToCart('${p.name}', ${p.price}, ${idx})">加入購物車</button></div>`;
+                idx++; return html;
+            }).join('') + `</div>`;
+        });
+    }
+
+    function filterProducts() {
+        const k = document.getElementById('search-input').value.toLowerCase();
+        document.querySelectorAll('.item-card').forEach(c => {
+            c.style.display = c.getAttribute('data-name').toLowerCase().includes(k) ? 'block' : 'none';
+        });
+    }
+
+    function addToCart(n, p, id) {
+        cart.push({ n, p, s: document.getElementById(`size-${id}`).value });
+        let total = 0;
+        let sorted = [...cart].sort((a,b) => b.p - a.p);
+        sorted.forEach((item, i) => { 
+            if(i % 4 !== 3) total += item.p; 
+            else {
+                let g = sorted.slice(Math.floor(i/4)*4, i).reduce((s,c)=>s+c.p,0);
+                if(g > 800) total = total - g + 800;
+            }
+        });
+        document.getElementById('cart-total').innerText = `$${total}`;
+        alert('已加入購物車');
+    }
+
+    function openCheckout() {
+        if(!cart.length) return alert('清單是空的');
+        document.getElementById('checkout-modal').style.display = 'block';
+        document.getElementById('summary').innerText = cart.map(i=>`${i.n} [${i.s}]`).join('\n');
+    }
+
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+    function submitOrder() {
+        const name = document.getElementById('user-name').value;
+        const total = document.getElementById('cart-total').innerText;
+        if(!name) return alert('請填寫姓名');
+        const text = `✨ 訂單明細 ✨\n姓名：${name}\n總額：${total}\n項目：\n${cart.map(i=>`- ${i.n} [${i.s}]`).join('\n')}`;
+        document.getElementById('copy-area').value = text;
+        closeModal('checkout-modal');
+        document.getElementById('success-modal').style.display = 'block';
+    }
+
+    function copyManual() {
+        document.getElementById("copy-area").select();
+        document.execCommand("copy");
+        alert("複製成功！");
+    }
+
+    function goToLine() { window.location.href = "https://line.me/R/ti/p/@227agbpg"; }
+
+    init();
 </script>
 </body>
 </html>
-<!-- update -->
